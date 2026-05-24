@@ -3,13 +3,15 @@
 import {onMounted, ref} from "vue";
 import {getAllPermission, getPermissionOfCurrentRole, getRoleList, type Role} from "@/http/role.ts";
 import MyTree from "@/MyTree.vue";
+import {all} from "axios";
 
 export interface Permission {
   id: number
   name: string
   menuType: string
   checked: boolean
-  children: []
+  children: Permission[]
+  halfChecked: boolean
 }
 
 const roleList = ref<Role[]>([]);
@@ -33,10 +35,49 @@ const openAuthDialog = async (roleId: number) => {
   // 为什么给每个权限增加一个checked属性？因为一个checkbox是否选中，就是用的checked
   // 这个属性的真或假来决定的，而且我们数据库返回过来的权限数据中并没有checked这个属性，所以需要给每个属性增加checked
   initMenuState(allPermission.value)
-  // 实现勾选
+  // 实现勾选（不管有没有半选，反正一股脑全选上）
   checkExistingPermissions(allPermission.value, rolePermissionIds)
+  // 实现半选
+  calculateParentStatus(allPermission.value)
   // 点击授权按钮让对话框显示
   isHide.value = false;
+  const array1 = [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+  const array2 = [2, 1]
+  const array3 = [...array1, ...array2];
+  console.log("合并后的数组：", array3);
+}
+// 计算父组件的状态（实现全选或半选）
+const calculateParentStatus = (allPermission: Permission[]) => {
+  allPermission.forEach(node => {
+    // 如何进行后序遍历？要从children开始
+    if (node.children && node.children.length > 0) {
+      calculateParentStatus(node.children);
+
+      let allChecked = true;  // 假设children全选了
+      let hasChecked = false; // 假设children全没选
+
+      node.children.forEach(child => {
+        // 只要有一个child（子节点没选中，那么allChecked就是false（父元素就不是全选）
+        if (!child.checked) {
+          allChecked = false;
+        }
+        if (child.checked || child.halfChecked) {
+          hasChecked = true;
+        }
+      })
+      // 如果为真就是全选
+      if (allChecked) {
+        node.checked = true;
+        node.halfChecked = false;
+      } else if (hasChecked) {
+        node.checked = false;
+        node.halfChecked = true;
+      } else {
+        node.checked = false;
+        node.halfChecked = false;
+      }
+    }
+  })
 }
 // 已有权限打勾
 const checkExistingPermissions = (allPermission: Permission[], rolePermissionIds: number[]) => {
@@ -54,6 +95,7 @@ const checkExistingPermissions = (allPermission: Permission[], rolePermissionIds
 const initMenuState = (treeData: Permission[]) => {
   treeData.forEach((menu) => {
     menu.checked = false;
+    menu.halfChecked = false;
     if (menu.children) {
       initMenuState(menu.children)
     }
@@ -64,6 +106,22 @@ const closeAuthDialog = (e: any) => {
   isHide.value = true;
 }
 const isHide = ref(true);
+const onNodeChange = (node: Permission, isChecked: boolean) => {
+  console.log("子节点传过来的数据：", node, isChecked)
+  // 做点事情，更新子节点的状态
+  updateChildState(node, isChecked)
+  // 根据子节点状态，计算父节点状态（全选、半选）
+  calculateParentStatus(allPermission.value)
+}
+const updateChildState = (node: Permission, isChecked: boolean) => {
+  node.checked = isChecked;
+  node.halfChecked = false;
+  if (node.children && node.children.length > 0) {
+    node.children.forEach(child => {
+      updateChildState(child, isChecked)
+    })
+  }
+}
 </script>
 
 <template>
@@ -93,6 +151,7 @@ const isHide = ref(true);
             v-for="menu in allPermission"
             :key="menu.id"
             :item="menu"
+            @node-change="onNodeChange"
         ></my-tree>
       </div>
     </div>

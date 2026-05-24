@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {computed} from "vue";
+import type {Permission} from "@/App.vue";
 
 const props = defineProps({
   item: {
@@ -22,15 +23,27 @@ const typeName2Chinese = computed(() => {
 const typeClass = computed(() => {
   return `type-${props.item.menuType.toLowerCase()}`
 })
+const emit = defineEmits(['node-change'])
+const handleChange = (e: Event) => {
+  // 如何知道自己勾选是哪个？
+  emit('node-change', props.item, e.target?.checked)
+}
+const handleChildChange = (node: Permission, isChecked: boolean) => {
+  emit('node-change', node, isChecked)
+}
 </script>
 
 <template>
   <div class="menu-content">
-    <input type="checkbox" :checked="item.checked">
+    <input type="checkbox"
+           :checked="item.checked"
+           .indeterminate="item.halfChecked"
+           @change="handleChange"
+    >
     <span>{{ props.item.name }}</span>
     <span class="item-type" :class="typeClass">{{ typeName2Chinese }}</span>
     <div class="children" v-if="item.children && item.children.length>0">
-      <MyTree v-for="subItem in item.children" :key="subItem.id" :item="subItem"/>
+      <MyTree v-for="subItem in item.children" :key="subItem.id" :item="subItem" @node-change="handleChildChange"/>
     </div>
   </div>
 </template>

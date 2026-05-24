@@ -1,8 +1,8 @@
 <script setup lang="ts">
 
 import {onMounted, ref} from "vue";
-import {getAllPermission, getRoleList, type Role} from "@/http/role.ts";
-import MyMenuItem from "@/MyMenuItem.vue";
+import {getAllPermission, getPermissionOfCurrentRole, getRoleList, type Role} from "@/http/role.ts";
+import MyTree from "@/MyTree.vue";
 
 export interface Permission {
   id: number
@@ -21,18 +21,34 @@ onMounted(async () => {
   console.log("所有角色数据：", roleList.value);
 })
 // 打开遮罩层
-const openAuthDialog = async () => {
+const openAuthDialog = async (roleId: number) => {
+  // 拿到已有的权限
+  const rolePermissionIds = await getPermissionOfCurrentRole(roleId);
+  console.log("角色已有的权限：", rolePermissionIds)
+
   // 获取所有权限
   allPermission.value = await getAllPermission();
   console.log(allPermission.value)
-
   // 给所有权限增加一个 checked属性
   // 为什么给每个权限增加一个checked属性？因为一个checkbox是否选中，就是用的checked
   // 这个属性的真或假来决定的，而且我们数据库返回过来的权限数据中并没有checked这个属性，所以需要给每个属性增加checked
   initMenuState(allPermission.value)
-
+  // 实现勾选
+  checkExistingPermissions(allPermission.value, rolePermissionIds)
   // 点击授权按钮让对话框显示
   isHide.value = false;
+}
+// 已有权限打勾
+const checkExistingPermissions = (allPermission: Permission[], rolePermissionIds: number[]) => {
+  allPermission.forEach(item => {
+    if (rolePermissionIds.includes(item.id)) {
+      item.checked = true;
+    }
+    // 判断item是否有子权限，如果有，就递归
+    if (item.children && item.children.length > 0) {
+      checkExistingPermissions(item.children, rolePermissionIds);
+    }
+  })
 }
 // 相当于二叉树的前序遍历
 const initMenuState = (treeData: Permission[]) => {
@@ -43,13 +59,11 @@ const initMenuState = (treeData: Permission[]) => {
     }
   })
 }
-
 const closeAuthDialog = (e: any) => {
   // 值为true，就关闭对话框
   isHide.value = true;
 }
 const isHide = ref(true);
-
 </script>
 
 <template>
@@ -63,7 +77,7 @@ const isHide = ref(true);
       <td>{{ role.id }}</td>
       <td>{{ role.name }}</td>
       <td>
-        <button @click="openAuthDialog">授权</button>
+        <button @click="openAuthDialog(role.id)">授权</button>
       </td>
     </tr>
   </table>
@@ -75,11 +89,11 @@ const isHide = ref(true);
       <!-- <div style="padding: 20px; height: 100%; box-sizing: border-box;" @click.stop> -->
       <div style="padding: 20px; height: 100%; box-sizing: border-box;">
         <h2>角色授权</h2>
-        <my-menu-item
+        <my-tree
             v-for="menu in allPermission"
             :key="menu.id"
             :item="menu"
-        ></my-menu-item>
+        ></my-tree>
       </div>
     </div>
   </div>

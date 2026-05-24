@@ -5,7 +5,7 @@ export interface RoleAuthorizePayload {
     permissionIds: number[]
 }
 
-export interface Role{
+export interface Role {
     id: number
     name: string
 }
@@ -26,9 +26,19 @@ export const getRoleList = () => {
     })
 }
 
-export const getAllPermission=()=>{
+export const getAllPermission = () => {
     return axios({
         url: '/api/role/getAllPermission',
         method: 'GET',
+    })
+}
+
+export const getPermissionOfCurrentRole = (roleId: number) => {
+    return axios({
+        url: '/api/role/getPermissionOfCurrentRole',
+        method: 'GET',
+        params: {
+            roleId
+        }
     })
 }

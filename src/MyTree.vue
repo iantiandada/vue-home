@@ -30,7 +30,7 @@ const typeClass = computed(() => {
     <span>{{ props.item.name }}</span>
     <span class="item-type" :class="typeClass">{{ typeName2Chinese }}</span>
     <div class="children" v-if="item.children && item.children.length>0">
-      <MyMenuItem v-for="subItem in item.children" :key="subItem.id" :item="subItem"/>
+      <MyTree v-for="subItem in item.children" :key="subItem.id" :item="subItem"/>
     </div>
   </div>
 </template>

@@ -4,7 +4,7 @@ import { onMounted, ref } from "vue";
 import { newsList } from "@/http/news.ts";
 
 // 各模块数据
-const collegeNews = ref([]);   // 学院新闻 (category=1)22
+const collegeNews = ref([]);   // 学院新闻 (category=1)11111
 const noticeNews = ref([]);    // 通知公告 (category=2)
 const academicNews = ref([]);  // 学术活动 (category=3)
 const studentNews = ref([]);   // 学工新闻 (category=4)

@@ -1,0 +1,110 @@
+name: Vue-Home-CMS
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package.json'
+      - 'vite.config.*'
+      - 'vue.config.*'
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: '是否强制重新编译打包 (Build & Deploy)?'
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  deploy-home:
+    runs-on: [self-hosted, home-builder]
+
+    steps:
+      - name: Native Git Checkout with SSH
+        run: |
+          export PATH=/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:$PATH
+          echo "Cleaning up frontend workspace..."
+          find . -mindepth 1 -delete 2>/dev/null || true
+          echo "Cloning frontend repository via SSH..."
+          git clone --depth 1 -b main git@github.com:iantiandada/vue-home.git .
+
+      - name: Frontend MD5 Fingerprint Detection
+        id: filter
+        run: |
+          export PATH=/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:$PATH
+          
+          CACHE_DIR="/tmp/vue_home_cache"
+          sudo mkdir -p $CACHE_DIR
+          sudo chown -R $(whoami):$(whoami) $CACHE_DIR
+          
+          OLD_FINGERPRINT="$CACHE_DIR/last_frontend_md5.txt"
+          CURRENT_FINGERPRINT=$(find src/ public/ package.json -type f 2>/dev/null | sort | xargs md5sum 2>/dev/null | md5sum | cut -d' ' -f1)
+          echo "Current Frontend Fingerprint: $CURRENT_FINGERPRINT"
+          
+          NEED_BUILD="false"
+          
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.force_rebuild }}" = "true" ]; then
+              echo "Decision: Manual Force Build."
+              NEED_BUILD="true"
+          elif [ ! -f "$OLD_FINGERPRINT" ]; then
+              echo "Decision: No frontend cache found. First time build."
+              NEED_BUILD="true"
+          elif [ "$CURRENT_FINGERPRINT" != "$(cat $OLD_FINGERPRINT 2>/dev/null)" ]; then
+              echo "Decision: Frontend source code changed."
+              NEED_BUILD="true"
+          else
+              echo "Decision: Frontend code identical. Skip build."
+              NEED_BUILD="false"
+          fi
+          
+          echo "$CURRENT_FINGERPRINT" > "$OLD_FINGERPRINT" || true
+          
+          if [ "$NEED_BUILD" = "true" ]; then
+              touch ./RUN_NODE_BUILD || true
+              if [ -d "dist" ]; then
+                  sudo rm -rf dist/ || rm -rf dist/ || true
+              fi
+          fi
+          
+          echo "code_changed=$NEED_BUILD" >> $GITHUB_OUTPUT
+          exit 0
+
+      - name: Install Dependencies and Build Vue
+        run: |
+          if [ -f "./RUN_NODE_BUILD" ]; then
+              echo "Executing NodeJS Build..."
+              export PATH=/usr/bin:/usr/local/bin:/bin:$PATH
+              node -v
+              npm -v
+              npm install --registry=https://registry.npmmirror.com
+              npm run build
+          else
+              echo "Skip NodeJS Build: Source code hash is unchanged."
+          fi
+
+      - name: Local Release and Nginx Link Management
+        run: |
+          export PATH=/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:$PATH
+          
+          if [ -f "./RUN_NODE_BUILD" ]; then
+              echo "Action: Deploying New Frontend Version"
+          
+              VUE_REL_DIR="/app/vue-home/releases/${{ github.sha }}"
+              mkdir -p $VUE_REL_DIR
+              cp -r dist/* $VUE_REL_DIR/
+              ln -snf $VUE_REL_DIR /app/vue-home/current
+          
+              # 安全替换 /var/www/vue-home 软链接
+              sudo rm -rf /var/www/vue-home
+              sudo ln -snf /app/vue-home/current /var/www/vue-home
+          
+              # 保留最近5个版本
+              cd /app/vue-home/releases && ls -t | tail -n +6 | xargs rm -rf 2>/dev/null || true
+          
+              echo "Deployment successful!"
+          else
+              echo "No deployment needed. Frontend is up to date."
+          fi

@@ -1,45 +1,52 @@
-
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { newsList } from "@/http/news.ts";
 
-// 各模块数据
-const collegeNews = ref([]);   // 学院新闻 (category=1)6666
-const noticeNews = ref([]);    // 通知公告 (category=2)
-const academicNews = ref([]);  // 学术活动 (category=3)
-const studentNews = ref([]);   // 学工新闻 (category=4)
+// 定义新闻项类型
+interface NewsItem {
+  id: number;
+  title: string;
+  createTime: string;
+}
 
-// 通用加载函数：请求指定分类的前N条新闻
-async function loadCategoryNews(category: number, targetRef: any, rows = 5) {
+// 各模块数据，明确指定类型
+const collegeNews = ref<NewsItem[]>([]);
+const noticeNews = ref<NewsItem[]>([]);
+const academicNews = ref<NewsItem[]>([]);
+const studentNews = ref<NewsItem[]>([]);
+
+// 通用加载函数
+async function loadCategoryNews(
+    category: number,
+    targetRef: ReturnType<typeof ref<NewsItem[]>>,
+    rows = 5
+) {
   try {
     const { data } = await newsList(1, rows, category);
-    targetRef.value = data;
+    targetRef.value = data as NewsItem[];
   } catch (e) {
     console.error(`加载 category ${category} 失败`, e);
   }
 }
 
 onMounted(async () => {
-  // 并行请求四个分类
   await Promise.all([
     loadCategoryNews(1, collegeNews, 5),
     loadCategoryNews(2, noticeNews, 5),
     loadCategoryNews(3, academicNews, 5),
-    loadCategoryNews(4, studentNews, 5)
+    loadCategoryNews(4, studentNews, 5),
   ]);
 });
 </script>
 
 <template>
-  <!-- 轮播图区域保持不变 -->
+  <!-- 轮播图 -->
   <section class="banner">
     <img src="/top-banner.png" alt="学院横幅" style="width:100%; display:block;">
   </section>
 
-  <!-- 内容区域 -->
   <section class="content">
     <div class="container">
-      <!-- 第一行：学院新闻、中间图片、通知公告 -->
       <div class="three-column-layout">
         <!-- 学院新闻 -->
         <div class="module">
@@ -79,7 +86,6 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- 第二行：学术活动、党建工作（留空或删除）、学工新闻 -->
       <div class="three-column-layout second-row">
         <!-- 学术活动 -->
         <div class="module">
@@ -97,17 +103,14 @@ onMounted(async () => {
           </ul>
         </div>
 
-        <!-- 党建工作（若数据库无此分类，可留空或删除整个模块） -->
+        <!-- 党建工作（暂无数据，保留占位） -->
         <div class="module">
           <div class="section-header">
             <h3>党建工作</h3>
             <span>更多 &gt;&gt;</span>
           </div>
           <ul class="news-list">
-            <!-- 暂时无数据，保留占位 -->
-            <li v-for="news in []" :key="news.id">
-              <router-link :to="'/news/' + news.id">{{ news.title }}</router-link>
-            </li>
+            <li>暂无内容</li>
           </ul>
         </div>
 
@@ -130,6 +133,7 @@ onMounted(async () => {
     </div>
   </section>
 </template>
+
 
 <style scoped>
 /* 全局重置 */

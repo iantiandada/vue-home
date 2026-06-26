@@ -1,7 +1,7 @@
 <template>
   <nav>
     <ul class="first">
-      <li><router-link to="/">首页</router-link></li>
+      <li><router-link to="/">首页11</router-link></li>
       <li>
         <a href="#">学院概况</a>
         <ul class="second">
